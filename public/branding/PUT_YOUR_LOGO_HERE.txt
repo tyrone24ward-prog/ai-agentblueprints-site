@@ -1,0 +1,7 @@
+Place your logo file in this folder.
+
+Recommended path for easy use in Next.js:
+/public/branding/logo.png
+
+Then it can be referenced in the app as:
+/branding/logo.png
