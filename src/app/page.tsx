@@ -178,6 +178,9 @@ export default function Home() {
             <a href="#faq" className={navButtonClass}>
               FAQ
             </a>
+            <Link href="/login" className={navButtonClass}>
+              Login
+            </Link>
           </div>
         </div>
       </nav>
