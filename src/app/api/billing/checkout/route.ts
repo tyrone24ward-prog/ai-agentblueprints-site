@@ -15,6 +15,30 @@ import { getStripeServerClient } from "@/lib/billing/stripe";
 
 export const runtime = "nodejs";
 
+const resolveAppBaseUrl = (request: Request) => {
+  const requestUrl = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const requestHost = request.headers.get("host");
+  const resolvedHost = forwardedHost ?? requestHost ?? requestUrl.host;
+  const resolvedProto = forwardedProto ?? requestUrl.protocol.replace(":", "");
+  const requestOrigin = `${resolvedProto}://${resolvedHost}`;
+  const configuredBaseUrl = APP_BASE_URL?.trim();
+  if (!configuredBaseUrl) {
+    return requestOrigin;
+  }
+
+  // Safety net: never use localhost callback URLs in production traffic.
+  if (
+    process.env.NODE_ENV === "production" &&
+    configuredBaseUrl.toLowerCase().includes("localhost")
+  ) {
+    return requestOrigin;
+  }
+
+  return configuredBaseUrl;
+};
+
 export async function POST(request: Request) {
   const sessionUser = await getCurrentSessionUser();
   const body = (await request.json().catch(() => null)) as
@@ -24,6 +48,7 @@ export async function POST(request: Request) {
   const requestedProductKey = body?.productKey ?? "full";
   const selectedProduct = getBillingProductByKey(requestedProductKey);
   const checkoutEmail = sessionUser?.email ?? requestedEmail;
+  const baseUrl = resolveAppBaseUrl(request);
 
   if (!selectedProduct) {
     return NextResponse.json({ error: "Invalid product selection." }, { status: 400 });
@@ -58,7 +83,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      const successUrl = `${APP_BASE_URL}/checkout/success?provider=lemonsqueezy&email=${encodeURIComponent(
+      const successUrl = `${baseUrl}/checkout/success?provider=lemonsqueezy&email=${encodeURIComponent(
         checkoutEmail,
       )}&productKey=${encodeURIComponent(selectedProduct.key)}`;
       const checkout = await createLemonSqueezyCheckout({
@@ -114,8 +139,8 @@ export async function POST(request: Request) {
       grantedEntitlements: selectedProduct.grantedEntitlements.join(","),
       checkoutMode: sessionUser ? "authenticated" : "guest",
     },
-    success_url: `${APP_BASE_URL}/checkout/success?provider=stripe&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${APP_BASE_URL}/checkout/cancel`,
+    success_url: `${baseUrl}/checkout/success?provider=stripe&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${baseUrl}/checkout/cancel`,
   });
 
   return NextResponse.json({ url: checkoutSession.url });
