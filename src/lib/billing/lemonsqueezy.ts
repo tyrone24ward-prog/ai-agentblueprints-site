@@ -167,6 +167,8 @@ export const findPaidLemonOrderForEmailAndProduct = async ({
             order_number?: number | string;
             total?: number | string;
             currency?: string;
+            created_at?: string;
+            test_mode?: boolean;
             first_order_item?: {
               variant_id?: number | string;
             };
